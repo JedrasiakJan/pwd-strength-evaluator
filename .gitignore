@@ -1,0 +1,39 @@
+# --- Pliki binarne i kompilacja ---
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+server       # Nazwa pliku binarnego, jeśli skompilujesz go lokalnie
+
+# --- Zależności i pakiety ---
+# Odkomentuj vendor/, jeśli decydujesz się na trzymanie zależności w repozytorium
+# vendor/
+
+# --- Narzędzia deweloperskie i IDE ---
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*~
+
+# --- Testy i pokrycie kodu ---
+*.out
+*.test
+c.out
+
+# --- Bezpieczeństwo i Sekrety (Kluczowe dla FedRAMP/HIPAA) ---
+*.env
+*.env.*
+.env.local
+secret.yaml
+*.pem
+*.key
+
+# --- Logi systemowe ---
+*.log
