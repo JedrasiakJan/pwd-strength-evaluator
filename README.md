@@ -13,15 +13,25 @@ Lekka, ultraszybka mikrousługa napisana w języku **Go**, służąca do oceny s
 
 ## Spis Treści
 
-📌 [Kluczowe decyzje architektoniczne](#kluczowe-decyzje-architektoniczne-i-założenia-projektowe) &nbsp;•&nbsp;
-[Instrukcja uruchomienia](#instrukcja-uruchomienia-i-testowania-usługi) &nbsp;•&nbsp;
-[Testowanie API](#jak-przetestować-działanie-punktu-końcowego-api) &nbsp;•&nbsp;
-[Architektura testów](#architektura-testów-jednostkowych-i-obsługa-przypadków-brzegowych) &nbsp;•&nbsp;
-[Przypadki brzegowe](#2-sprawdzane-przypadki-brzegowe-edge-cases-i-ich-uzasadnienie) &nbsp;•&nbsp;
-[Docker i Distroless](#1-dlaczego-wybraliśmy-dockera-i-to-w-wersji-distroless) &nbsp;•&nbsp;
-[k-Anonymity](#2-założenia-kryptograficzne-i-ochrona-prywatności-k-anonymity) &nbsp;•&nbsp;
-[Zero-Allocation](#3-niskopoziomowa-optymalizacja-wydajności-zero-allocation-parsing) &nbsp;•&nbsp;
-[Fail-Open](#4-strategia-fail-open-odporność-na-awarie-komponentów)
+### Dokumentacja projektu
+
+- [Kluczowe decyzje architektoniczne](#kluczowe-decyzje-architektoniczne-i-założenia-projektowe)
+- [Instrukcja uruchomienia](#instrukcja-uruchomienia-i-testowania-usługi)
+- [Testowanie API](#jak-przetestować-działanie-punktu-końcowego-api)
+- [Architektura testów](#architektura-testów-jednostkowych-i-obsługa-przypadków-brzegowych)
+- [Przypadki brzegowe](#2-sprawdzane-przypadki-brzegowe-edge-cases-i-ich-uzasadnienie)
+- [Docker i Distroless](#1-dlaczego-wybraliśmy-dockera-i-to-w-wersji-distroless)
+- [k-Anonymity](#2-założenia-kryptograficzne-i-ochrona-prywatności-k-anonymity)
+- [Zero-Allocation](#3-niskopoziomowa-optymalizacja-wydajności-zero-allocation-parsing)
+- [Fail-Open](#4-strategia-fail-open-odporność-na-awarie-komponentów)
+
+### Polityka haseł 2026 — przewodnik
+
+- [Dlaczego polityka haseł w 2026 wygląda inaczej](#1-dlaczego-polityka-haseł-w-2026-wygląda-inaczej)
+- [Minimalna długość zamiast złożoności: passphrases i praktyczne zasady tworzenia haseł](#2-minimalna-długość-zamiast-złożoności-passphrases-i-praktyczne-zasady-tworzenia-haseł)
+- [Menedżery haseł w organizacji: wymagania, wdrożenie i dobre praktyki użytkowników](#3-menedżery-haseł-w-organizacji-wymagania-wdrożenie-i-dobre-praktyki-użytkowników)
+- [MFA i passkeys jako kierunek docelowy: gdzie hasła nadal są potrzebne, a gdzie nie](#4-mfa-i-passkeys-jako-kierunek-docelowy-gdzie-hasła-nadal-są-potrzebne-a-gdzie-nie)
+- [Ochrona przed atakami: blokady po próbach, rate limiting, credential stuffing i monitoring logowań](#5-ochrona-przed-atakami-blokady-po-próbach-rate-limiting-credential-stuffing-i-monitoring-logowań)
 
 ---
 
@@ -177,3 +187,264 @@ Aplikacje autoryzacyjne obsługują najwyższy ruch w całej infrastrukturze (sz
 
 Mikrousługa bezpieczeństwa nie może stać się pojedynczym punktem awarii (Single Point of Failure - SPoF) dla całego ekosystemu firmy. Jeśli zewnętrzne API wycieków leży, rejestracja nowych klientów w systemie nadrzędnym musi trwać nadal.
 *   **Zastosowane rozwiązanie:** W przypadku timeoutu sieciowego lub błędów HTTP 5xx ze strony API HIBP, system loguje incydent z flagą `ERROR` do celów audytowych, ale przechodzi w tryb **Fail-Open**. Oznacza to, że pomija krok weryfikacji wycieków i opiera ostateczny werdykt wyłącznie na lokalnym teście entropii `zxcvbn`. Jeśli hasło jest długie i unikalne, żądanie zostanie przepuszczone.
+
+
+
+## 📖 Nowoczesna polityka uwierzytelniania w 2026 roku
+
+---
+
+### 1. Dlaczego polityka haseł w 2026 wygląda inaczej
+
+W 2026 hasło coraz rzadziej jest jedyną linią obrony, a coraz częściej jednym z elementów większego układu: aplikacje i usługi wspierają logowanie bezhasłowe, a organizacje częściej wymagają dodatkowej weryfikacji tożsamości. Jednocześnie hasła nie zniknęły — nadal są powszechne w wielu systemach, integracjach i procesach awaryjnych. Dlatego nowoczesna polityka haseł musi być realistyczna, spójna i przyjazna użytkownikom, bo tylko wtedy będzie faktycznie stosowana.
+
+Najważniejsza zmiana polega na odejściu od „haseł-łamigłówek” (częste wymuszanie znaków specjalnych, cykliczne zmiany, arbitralne reguły) na rzecz podejścia opartego na aktualnych standardach, analizie ryzyka i ochronie przed realnymi atakami. Polityka ma minimalizować przejęcia kont, ale bez generowania kosztów i obejść typu zapisywanie haseł na kartkach czy tworzenie przewidywalnych wariantów.
+
+#### Co wymusiło zmianę: standardy i praktyka
+W ostatnich latach podejście do haseł zostało mocno ujednolicone przez rekomendacje branżowe (np. NIST SP 800-63) oraz praktyki dostawców usług i audytów. Wspólny mianownik jest prosty: użytkownicy nie powinni być zmuszani do zachowań, które obniżają bezpieczeństwo, nawet jeśli „na papierze” wyglądają na rygorystyczne.
+
+W praktyce oznacza to, że polityka haseł w 2026 powinna kłaść nacisk na:
+* **odporność na typowe ataki** (próby przejęcia konta oparte o znane wycieki, automatyzację i socjotechnikę),
+* **użyteczność** (żeby użytkownik nie musiał obchodzić zasad),
+* **spójność między systemami** (żeby nie powstawał chaos reguł w zależności od aplikacji),
+* **zgodność z kierunkiem bezhasłowym** (tak, by hasła nie blokowały wdrożeń MFA i passkeys).
+
+#### Najważniejsze zagrożenia w 2026: inne niż „zgadnięcie hasła”
+Klasyczne „brute force” wciąż istnieje, ale w środowiskach produkcyjnych częściej wygrywają ataki, które omijają „siłę” hasła:
+* **Credential stuffing** — automatyczne testowanie par login/hasło z wcześniejszych wycieków na wielu usługach, licząc na ponowne użycie hasła.
+* **Phishing i przejęcia sesji** — użytkownik może podać hasło na fałszywej stronie, a napastnik wykorzysta je od razu lub przejmie tokeny sesyjne.
+* **Ataki na procesy odzyskiwania dostępu** — słabe linki resetu, łatwe pytania bezpieczeństwa, zbyt proste procedury wsparcia.
+* **Automatyzacja na dużą skalę** — boty testujące logowania, rejestracje, API i punkty integracyjne, gdzie polityka bywa niespójna.
+* **Ryzyko wewnętrzne i udostępnianie kont** — hasła krążą w mailach, komunikatorach lub wśród zespołów, jeśli polityka i narzędzia tego nie adresują.
+
+> **Wniosek:** Samo „wymyślenie trudniejszego hasła” nie rozwiązuje problemu, jeśli organizacja nie ma mechanizmów ograniczających nadużycia i wykrywających podejrzane logowania.
+
+#### Czego unikać: „absurdy”, które psują bezpieczeństwo
+W 2026 wiele starszych praktyk jest uznawanych za kontrproduktywne, bo prowadzą do przewidywalnych zachowań użytkowników i wzrostu obciążeń operacyjnych. Najczęstsze pułapki to:
+* Wymuszanie cyklicznej zmiany hasła bez powodu — sprzyja tworzeniu wariantów typu „Haslo!2026”, a nie realnie lepszych haseł.
+* Sztywne reguły złożoności (np. „musi być wielka litera, cyfra i znak specjalny”) jako główny filar polityki — użytkownicy wybierają wtedy schematy łatwe do odgadnięcia.
+* Ograniczanie długości lub blokowanie spacji i znaków z innych alfabetów — to utrudnia tworzenie dobrych, długich haseł i fraz.
+* Zbyt agresywne blokady kont bez kontroli nadużyć — mogą stać się narzędziem do łatwego wywołania niedostępności (atak typu lockout).
+* Ujednolicenie haseł „dla wygody” (wiele systemów, to samo hasło) — zwiększa skutki pojedynczego wycieku.
+* Przerzucanie odpowiedzialności na użytkownika bez wsparcia narzędziami — jeśli organizacja nie daje bezpiecznych mechanizmów, ludzie i tak znajdą drogę na skróty.
+
+#### Co to oznacza dla polityki: kierunek zamiast szczegółów
+Nowoczesna polityka haseł w 2026 ma wspierać trzy cele: ograniczyć przejęcia kont, zmniejszyć tarcie dla użytkownika i ułatwić egzekwowanie oraz audyt. Dlatego powinna być budowana w powiązaniu z zasadami dostępu, sposobami logowania i ochroną procesu resetu, a nie jako oderwana lista zakazów i nakazów.
+
+W praktyce oznacza to odejście od „hasło ma wyglądać skomplikowanie” na rzecz „hasło ma być trudne do przejęcia w realnych warunkach”, a resztę mają domknąć mechanizmy organizacyjne i techniczne.
+
+---
+
+### 2. Minimalna długość zamiast złożoności: passphrases i praktyczne zasady tworzenia haseł
+
+W 2026 coraz więcej organizacji odchodzi od polityk typu „musi zawierać wielką literę, cyfrę i znak specjalny” na rzecz prostszej, skuteczniejszej zasady: liczy się długość i unikalność. Wymuszanie skomplikowanych kompozycji często kończy się przewidywalnymi wzorcami (np. zamiana „a” na „@”, dopisywanie „1!” na końcu), które nie dają realnej przewagi wobec współczesnych ataków, a jednocześnie zwiększają frustrację i liczbę resetów. 
+
+Najbardziej praktyczną formą „długiego hasła” jest **passphrase**, czyli fraza-hasło: kilka zwykłych słów ułożonych w łatwe do zapamiętania zdanie lub sekwencję. Taka konstrukcja ma wysoką entropię dzięki długości, a jednocześnie jest przyjazna użytkownikowi, bo nie wymaga żonglowania znakami.
+
+#### Co zastępuje „złożoność” i dlaczego to działa
+* **Długość:** dłuższe hasła są trudniejsze do złamania metodami offline, a w praktyce dają więcej niż wymuszanie znaków specjalnych.
+* **Unikalność:** każde konto powinno mieć inne hasło; ponowne użycie jest jedną z najczęstszych przyczyn przejęć po wyciekach.
+* **Brak przewidywalnych schematów:** polityki „złożoności” prowadzą do schematów, które atakujący zakładają w słownikach i regułach.
+
+#### Passphrases w praktyce: jak tworzyć dobre frazy
+Dobra passphrase jest długa, naturalna do zapamiętania i nieoczywista. Warto myśleć o niej jak o mini-historii lub obrazie w głowie. Nie musi zawierać znaków specjalnych, jeśli jest wystarczająco długa, ale może je zawierać, jeśli pomagają w zapamiętaniu.
+* Łącz kilka słów, które nie tworzą popularnego cytatu ani znanego zwrotu.
+* Unikaj danych osobistych i firmowych, które można zgadnąć lub znaleźć (imiona bliskich, nazwa organizacji, projekt, rok).
+* Jeśli dodajesz separator (spacja, myślnik), rób to dla czytelności; nie traktuj tego jako „wymogu bezpieczeństwa”.
+* W miarę możliwości unikaj krótkich haseł „ulepszonych” przez dopisanie cyfry lub „!” — to zwykle przewidywalne.
+
+#### Ile znaków wymagać: praktyczne minimum
+Minimalna długość powinna odzwierciedlać ryzyko i typ konta. W większości przypadków rozsądny standard to co najmniej 14–16 znaków, a dla kont uprzywilejowanych (administracyjnych) więcej. Najważniejsze jest, by minimalna długość nie wymuszała kompromisów w użyteczności, bo to prowadzi do obchodzenia zasad.
+
+Równolegle warto ustalić maksymalną dopuszczalną długość na sensownie wysokim poziomie, aby nie blokować użycia passphrases i menedżerów haseł. Zbyt niski limit maksymalny bywa cichym „psuciem” bezpieczeństwa, bo zmusza do skracania mocnych haseł.
+
+#### Czego unikać w zasadach tworzenia haseł
+* Wymuszonej rotacji „co 30/60/90 dni” bez powodu — często kończy się dopisywaniem kolejnych numerów i spadkiem jakości haseł.
+* Zbyt agresywnych reguł składu, które utrudniają tworzenie długich haseł i zwiększają liczbę resetów.
+* Blokowania wklejania w polu hasła — to zniechęca do korzystania z menedżerów i sprzyja słabszym hasłom.
+* „Wskazówek do hasła”, które ujawniają informacje pomocne w odgadnięciu.
+* Ograniczania do krótkich zestawów znaków lub niskich limitów długości, które niepotrzebnie redukują przestrzeń haseł.
+
+> 💡 **Pro tip:** Stawiaj na passphrase: 4–6 niepowiązanych słów ułożonych w zapamiętywalną frazę (zwykle 14–16+ znaków) daje więcej niż „@1!” i inne przewidywalne sztuczki. Każde konto ma mieć inne hasło, a polityka nie może ucinać maksymalnej długości ani blokować wklejania — to sabotuje menedżery haseł.
+
+---
+
+### 3. Menedżery haseł w organizacji: wymagania, wdrożenie i dobre praktyki użytkowników
+
+W 2026 menedżer haseł jest praktycznym „systemem operacyjnym” dla logowania: porządkuje dostęp do setek kont, zmniejsza powtórzenia haseł i ogranicza ryzyko wynikające z ręcznego przechowywania sekretów. W polityce haseł menedżer nie jest dodatkiem, tylko mechanizmem egzekwującym dobre nawyki (unikalne, długie hasła) bez obciążania użytkowników.
+
+#### Do czego menedżer haseł ma służyć w firmie (i do czego nie)
+* Przechowywanie i generowanie unikalnych haseł dla usług firmowych i zewnętrznych.
+* Bezpieczne współdzielenie dostępów w zespole (z kontrolą uprawnień), zamiast przekazywania haseł na czacie lub w mailu.
+* Onboarding/offboarding: szybkie nadawanie i odbieranie dostępu do współdzielonych zasobów.
+* Porządkowanie „shadow IT”: centralny, audytowalny sposób przechowywania sekretów używanych do narzędzi SaaS.
+* **Nie:** przechowywanie sekretów infrastrukturalnych w stylu kluczy API/sekretów aplikacyjnych jako jedynego magazynu (do tego zwykle służą wyspecjalizowane sejfy sekretów). Menedżer haseł ma przede wszystkim rozwiązywać problem kont użytkowników i kont współdzielonych.
+
+#### Wymagania dla menedżera haseł w organizacji
+Wybór narzędzia powinien wynikać z potrzeb zarządczych i bezpieczeństwa, a nie tylko z wygody. Minimalny zestaw wymagań w środowisku firmowym:
+* **Model organizacyjny:** zespoły/vaulty, role i uprawnienia (kto może widzieć, edytować, udostępniać).
+* **Udostępnianie z kontrolą:** współdzielone elementy bez „przekazywania hasła”, możliwość odebrania dostępu bez zmiany hasła (gdy narzędzie to wspiera) lub przynajmniej szybka rotacja w obrębie współdzielonego vaultu.
+* **Audyt i logi:** zdarzenia administracyjne i użytkownika (logowania, udostępnienia, eksporty), integracja z SIEM/centralnym logowaniem.
+* **Integracja z tożsamością:** SSO (SAML/OIDC) oraz SCIM do automatycznego tworzenia/wyłączania kont; wsparcie dla polityk dostępu warunkowego, jeśli organizacja je stosuje.
+* **MFA dla sejfu:** możliwość wymuszenia silnego uwierzytelnienia do samego menedżera (nie mylić z MFA do usług docelowych).
+* **Bezpieczne odzyskiwanie:** procedury i mechanizmy dla utraty urządzenia/dostępu (w tym scenariusze dla administratorów), bez obchodzenia zabezpieczeń.
+* **Obsługa urządzeń i przeglądarek:** aplikacje desktop/mobile, rozszerzenia przeglądarek, wsparcie dla polityk MDM (jeśli firma zarządza urządzeniami).
+* **Separacja prywatne/służbowe:** jasny model, czy dopuszczasz prywatny sejf użytkownika obok służbowego, oraz jak wygląda przenoszenie danych przy odejściu pracownika.
+* **Kontrola eksportu:** możliwość ograniczenia/monitorowania eksportu haseł i pracy „offline” (w zależności od ryzyka).
+
+#### Modele wdrożenia: co wybrać i kiedy
+
+| Model | Najlepszy gdy… | Ryzyka/uwagi |
+| :--- | :--- | :--- |
+| **Cloud (SaaS)** | chcesz szybkiego startu, łatwych integracji z SSO/SCIM i niskiego kosztu utrzymania | wymaga oceny dostawcy, umów, lokalizacji danych i logowania zdarzeń |
+| **Self-hosted** | masz wymagania regulacyjne/techniczne lub potrzebujesz pełnej kontroli nad środowiskiem | utrzymanie, aktualizacje, kopie zapasowe i bezpieczeństwo spoczywają na tobie |
+| **Hybrydowy** | część zespołów pracuje w środowiskach o podwyższonych wymaganiach | większa złożoność, kluczowe jest spójne zarządzanie tożsamością i audyt |
+
+#### Plan wdrożenia (bez „wielkiej rewolucji”)
+1. **Inwentaryzacja:** gdzie dziś są hasła (przeglądarki, pliki, notatniki, czaty), jakie są konta współdzielone i które narzędzia SaaS są krytyczne.
+2. **Projekt struktury:** vaulty per zespół/projekt, zasady nadawania ról, właściciele vaultów, proces proszenia o dostęp.
+3. **Integracja z tożsamością:** SSO jako domyślny sposób logowania do menedżera, SCIM do automatyzacji cyklu życia kont.
+4. **Pilotaż:** mała grupa (np. IT/Finanse/Sprzedaż) i typowe scenariusze: generowanie haseł, współdzielenie, onboarding, odzyskiwanie.
+5. **Migracja:** przeniesienie haseł z przeglądarek i „nieformalnych” miejsc do sejfu; priorytet dla kont administracyjnych i współdzielonych.
+6. **Polityki i egzekwowanie:** wymuszenie MFA do sejfu, blokada niebezpiecznych praktyk (np. zakaz wysyłania haseł w mailu), oraz jasne reguły dla kont współdzielonych.
+7. **Szkolenie krótkie i praktyczne:** 30–45 minut z naciskiem na codzienne nawyki (autouzupełnianie, generowanie, udostępnianie) + checklisty.
+
+#### Dobre praktyki dla użytkowników (proste reguły, które działają)
+* **Trzymaj hasła w jednym miejscu:** firmowy menedżer jest domyślnym magazynem; nie duplikuj w notatkach, plikach ani w przeglądarce „dla wygody”.
+* **Generuj, nie wymyślaj:** dla kont w menedżerze używaj generatora (unikalne, długie hasła); ręczne hasła zostaw tylko tam, gdzie naprawdę musisz coś wpisać ręcznie.
+* **Nie udostępniaj hasła – udostępniaj wpis:** jeśli ktoś potrzebuje dostępu, dodaj go do współdzielonego vaultu/elementu zgodnie z rolą, zamiast przesyłać sekret.
+* **Oznaczaj i porządkuj:** tagi/zespoły/projekty, opis „do czego jest konto”, właściciel biznesowy, link do systemu.
+* **Minimalizuj konta współdzielone:** jeśli już muszą istnieć, to tylko w vaultach zespołowych z właścicielem i jasno przydzielonymi uprawnieniami.
+* **Uważaj na phishing:** autouzupełnianie pomaga wykrywać fałszywe domeny (brak dopasowania), ale nie zastępuje czujności; zawsze sprawdzaj adres usługi.
+* **Chroń „hasło główne”/dostęp do sejfu:** nie zapisuj go obok urządzenia; traktuj menedżer jak klucz do wszystkich drzwi.
+* **Oddziel prywatne od służbowego:** nie mieszaj kont osobistych z firmowymi, jeśli polityka tego zabrania; jeśli dopuszcza — trzymaj je w rozdzielonych sejfach.
+
+#### Krótka lista kontrolna dla IT/bezpieczeństwa
+* SSO + SCIM włączone, role administracyjne minimalne.
+* Wymuszone MFA do menedżera, polityka urządzeń (MDM) tam, gdzie ma to sens.
+* Zdefiniowane vaulty zespołowe i proces udostępniania (kto zatwierdza).
+* Włączone logowanie zdarzeń i przegląd najważniejszych alertów (np. masowe eksporty, nietypowe logowania).
+* Procedura odzyskiwania dostępu i scenariusz awaryjny dla kont krytycznych.
+
+> Największą wartością menedżera haseł w organizacji jest to, że zamienia „politykę na papierze” w codzienną praktykę: użytkownicy mogą mieć unikalne sekrety bez wysiłku, a firma zyskuje kontrolę nad współdzieleniem, audytem i cyklem życia dostępów.
+
+---
+
+### 4. MFA i passkeys jako kierunek docelowy: gdzie hasła nadal są potrzebne, a gdzie nie
+
+W 2026 hasło coraz rzadziej jest „główną linią obrony”. Coraz częściej pełni rolę mechanizmu awaryjnego albo elementu kompatybilności w starszych systemach, a ciężar bezpieczeństwa przejmują MFA (uwierzytelnianie wieloskładnikowe) i passkeys (logowanie oparte o klucze kryptograficzne). Dobrze zaprojektowana polityka haseł powinna więc zakładać, że: tam, gdzie to możliwe, ograniczamy użycie haseł, a tam, gdzie muszą pozostać — wzmacniamy je dodatkowymi warstwami.
+
+#### Passkeys: „bezhasłowe” logowanie, które eliminuje klasyczne ryzyka
+Passkeys to metoda logowania oparta o kryptografię klucza publicznego (standardy w ekosystemie FIDO2/WebAuthn). Użytkownik nie wpisuje sekretu, tylko potwierdza tożsamość na urządzeniu (np. PIN/biometria do odblokowania klucza). Klucz prywatny nie opuszcza urządzenia, a serwis dostaje jedynie dowód posiadania.
+* **Odporność na phishing** (w typowym scenariuszu) — passkey jest powiązany z konkretną domeną/usługą, więc „podrobiona strona” zwykle nie zadziała.
+* **Brak „hasła do wycieku”** — w razie incydentu po stronie serwisu napastnik nie dostaje materiału do łamania offline.
+* **Mniej tarcia dla użytkownika** — nie ma resetów haseł z powodu zapomnienia, jeśli organizacja zadba o sensowny proces odzyskiwania dostępu.
+
+W praktyce passkeys są kierunkiem docelowym dla aplikacji i usług, które mają nowoczesny front (web/mobile) i mogą wdrożyć WebAuthn/FIDO2. W polityce warto rozdzielić obszary ich wdrażania.
+
+#### MFA: dodatkowy składnik, gdy hasło nadal istnieje
+MFA oznacza użycie co najmniej dwóch niezależnych składników (coś, co użytkownik zna + coś, co ma lub czym jest). W kontekście polityki haseł MFA jest kluczowe tam, gdzie hasło nadal jest wymagane: znacząco ogranicza skutki wycieku lub przejęcia hasła.
+
+Nie wszystkie metody MFA są równie odporne. W polityce warto jasno rozróżnić mechanizmy:
+* **Najsilniejsze (zalecane):** klucze sprzętowe FIDO2/WebAuthn, aplikacje uwierzytelniające generujące kody jednorazowe (TOTP), powiadomienia push z „number matching”.
+* **Słabsze (tylko awaryjnie lub w wyjątkach):** SMS/połączenie głosowe — ze względu na ryzyka związane z przejęciem numeru (SIM swapping) i socjotechniką.
+
+#### Gdzie hasła nadal są potrzebne (realistycznie)
+Nawet przy ambitnym przejściu na passkeys, hasła często pozostają w kilku obszarach. Polityka powinna je nazwać i ograniczyć do minimum:
+1. **Systemy legacy** i urządzenia, które nie wspierają nowoczesnych metod (część VPN/VDI, starsze aplikacje biznesowe, urządzenia sieciowe, niektóre drukarki/IoT).
+2. **Kontener „fallback”** — awaryjne logowanie, gdy użytkownik nie ma dostępu do urządzenia z passkey (tu kluczowe są procedury odzyskiwania i kontrola ryzyka).
+3. **Konta serwisowe / integracje** — tam, gdzie wciąż używa się sekretów aplikacyjnych (choć docelowo lepiej zastępować je tokenami, certyfikatami lub tożsamością maszynową).
+4. **Środowiska o ograniczonej łączności** lub specyficznych wymaganiach (np. stacje kioskowe, segmenty OT) — zależnie od możliwości technicznych.
+
+#### Gdzie hasła nie powinny być pierwszym wyborem
+Jeśli usługa może wspierać passkeys lub silne MFA, to hasło jako jedyny mechanizm uwierzytelnienia powinno być traktowane jako rozwiązanie tymczasowe:
+* **SSO do aplikacji firmowych** — preferowane centralne logowanie z MFA/passkeys zamiast wielu lokalnych haseł.
+* **Dostęp administracyjny** — konta uprzywilejowane powinny mieć silniejsze wymagania (sprzętowy klucz lub passkey, dodatkowe kontrole dostępu).
+* **Aplikacje wystawione do Internetu** — logowanie tylko hasłem znacząco zwiększa podatność na credential stuffing.
+
+#### Porównanie: hasło + MFA vs passkeys
+
+| Obszar | Hasło + MFA | Passkeys |
+| :--- | :--- | :--- |
+| **Odporność na phishing** | Średnia–wysoka (zależy od metody MFA) | Wysoka (zwykle powiązanie z domeną) |
+| **Ryzyko wycieku z serwisu** | Hasła mogą wyciec (nawet jako hashe) | Brak hasła do wycieku (klucz prywatny u użytkownika) |
+| **Wygoda użytkownika** | Umiarkowana (pamiętanie/zmiany, kody) | Wysoka (potwierdzenie na urządzeniu) |
+| **Kompatybilność z legacy** | Zwykle dobra | Ograniczona (wymaga wsparcia aplikacji i OS) |
+| **Odzyskiwanie dostępu** | Znane, ale często nadużywane kanały | Wwymaga dobrego procesu i procedur IT |
+
+#### Jak ująć to w polityce: proste zasady decyzyjne
+* Preferuj passkeys dla nowych aplikacji i systemów, które można dostosować — jako domyślny sposób logowania użytkowników.
+* Jeśli hasło pozostaje, to MFA jest obowiązkowe dla dostępu z Internetu, dla kont uprzywilejowanych i dla zasobów wrażliwych.
+* Ogranicz wyjątki: jeśli gdzieś nie da się wdrożyć MFA/passkeys, wymagaj formalnej akceptacji ryzyka i planu modernizacji.
+* Oddziel „logowanie człowieka” od „tożsamości aplikacji”: dla integracji i automatyzacji dąż do mechanizmów innych niż hasła (np. klucze/poświadczenia krótkotrwałe).
+
+---
+
+### 5. Ochrona przed atakami: blokady po próbach, rate limiting, credential stuffing i monitoring logowań
+
+W 2026 „polityka haseł” nie kończy się na wymaganiach dla użytkownika. Największą różnicę robi ochrona mechanizmu logowania: to ona ogranicza skuteczność ataków online (zgadywanie haseł, automaty, botnety, credential stuffing). Dobre zasady są proste: spowalniaj atakującego, nie karz legalnych użytkowników i zbieraj sygnały o nadużyciach.
+
+#### Blokady konta po próbach: ostrożnie, bo to też wektor ataku
+Klasyczna blokada konta po X błędnych próbach bywa ryzykowna, bo pozwala na Denial of Service: ktoś może celowo blokować konta pracowników (zwłaszcza gdy zna ich loginy). Dlatego w nowoczesnych podejściach częściej stosuje się blokady „inteligentne” lub blokady czasowe zamiast trwałego zablokowania.
+* **Blokada czasowa (cooldown)** – po serii nieudanych prób wymagaj odczekania (np. rosnąco: 30 s, 2 min, 10 min), zamiast trwałej blokady.
+* **Blokada zależna od ryzyka** – ostrzejsza, gdy widać automatyzację (wiele prób, wiele kont, nietypowa lokalizacja/IP/ASN, brak cookies), łagodniejsza przy zachowaniu typowych wzorców użytkownika.
+* **Blokada na „kombinację”** – np. na parę konto + adres IP lub konto + fingerprint sesji, żeby nie blokować całego konta przez ruch z jednego źródła.
+
+> W praktyce często lepsze jest spowalnianie i filtrowanie (rate limiting, wykrywanie botów) niż twarda blokada konta.
+
+#### Rate limiting: podstawowe narzędzie przeciw automatom
+Rate limiting ogranicza tempo prób logowania. Jest skuteczny, bo ataki online wygrywa się skalą i szybkością. Kluczowe jest ograniczanie na kilku wymiarach jednocześnie:
+* **Per IP** – redukuje najprostsze ataki z jednego źródła.
+* **Per konto (username/email)** – chroni konkretne konto, gdy IP się zmienia (np. botnet).
+* **Per urządzenie/sesję** – np. cookie, token urządzenia; pomaga odróżnić człowieka od automatu.
+* **Per podsieć / ASN / region** – przydaje się, gdy widać nadużycia z określonych zakresów.
+
+Warto łączyć rate limiting z krótkim opóźnieniem odpowiedzi (np. stałe 200–500 ms) oraz progresywnym backoff przy kolejnych błędach. To podnosi koszt ataku bez drastycznego pogorszenia UX.
+
+#### Porównanie mechanizmów ochrony
+
+| Mechanizm | Co ogranicza | Typowy efekt uboczny | Kiedy ma sens |
+| :--- | :--- | :--- | :--- |
+| **Blokada konta (twarda)** | Próby na jedno konto | DoS na użytkownika | Rzadko; głównie w systemach o wysokim ryzyku |
+| **Cooldown / backoff** | Szybkość prób | Chwilowe opóźnienia przy pomyłkach | Domyślnie w większości aplikacji |
+| **Rate limiting** | Masowe ataki automatyczne | Wymaga stałego strojenia progów | Wszędzie, szczególnie publiczne punkty logowania |
+| **Weryfikacja CAPTCHA** | Boty i skrypty | Utrudnienie UX / dostępności | Warunkowo: dopiero po wykryciu anomalii ryzyka |
+
+#### Credential stuffing: najczęstszy realny scenariusz
+Credential stuffing to masowe próby logowania skradzionymi parami login/hasło z wycieków. W odróżnieniu od „zgadywania”, tutaj hasła często są poprawne — więc same wymagania dotyczące złożoności niewiele dają. Obrona opiera się na wykrywaniu wzorców i redukcji automatyzacji:
+* **Wykrywanie anomalii:** wiele kont z jednego IP, wiele IP na jedno konto, szybkie przełączanie kont, nietypowe nagłówki klienta.
+* **Warunkowe zaostrzenie logowania:** po sygnale ryzyka wymagaj dodatkowego kroku (np. ponowne potwierdzenie), zamiast utrudniać wszystkim zawsze.
+* **Ujednolicone komunikaty błędu:** nie ujawniaj, czy to login czy hasło jest błędne (ogranicza enumerację kont).
+* **Ochrona endpointów pomocniczych:** limity i monitorowanie także na „reset hasła”, „sprawdź czy konto istnieje”, bo tam często zaczyna się automatyzacja.
+
+#### Monitoring logowań: sygnały, które powinny trafić do alertów
+* **Zdarzenia do logowania:** udane/nieudane logowania, użycie mechanizmów odzyskiwania dostępu, zmiany w konfiguracji konta, zmiany urządzenia/przeglądarki, zmiany adresu email/telefonu.
+* **Kontekst:** czas, identyfikator konta, IP/ASN (lub przybliżona geolokalizacja), identyfikator aplikacji/klienta, wynik polityki (np. „rate-limited”, „cooldown applied”).
+* **Alerty wysokiego priorytetu:** wiele nieudanych prób na jedno konto, skokowy wzrost nieudanych logowań w skali systemu, udane logowanie po serii błędów, logowanie z nietypowej lokalizacji po krótkim czasie (twz. „impossible travel”), nadużycia na endpointach resetu.
+* **Wskaźniki operacyjne:** odsetek logowań zablokowanych przez limity, liczba kont „atakowanych”, top źródeł ruchu automatycznego.
+
+> Jednocześnie należy uważać na prywatność: loguj minimum potrzebne do bezpieczeństwa, ogranicz dostęp do logów i stosuj retencję zgodną z wymaganiami organizacji.
+
+#### Krótki wzorzec konfiguracji (przykład)
+Poniższy szkic pokazuje ideę: limity na IP i konto, rosnący cooldown oraz warunkowe „human check” dopiero po przekroczeniu progów. To nie jest gotowa polityka — raczej punkt startowy do strojenia pod własny ruch.
+
+```yaml
+# Pseudokonfiguracja ochrony punktu logowania
+login_protection:
+  rate_limits:
+    per_ip:
+      window: 10m
+      max_attempts: 30
+    per_account:
+      window: 15m
+      max_attempts: 10
+  cooldown_backoff:
+    after_failed_attempts: [5, 8, 10]
+    cooldowns: [30s, 2m, 10m]
+  risk_steps:
+    if_suspected_automation:
+      require_human_check: true
+    if_credential_stuffing_pattern:
+      tighten_limits_factor: 0.5
+  errors:
+    message: "Nieprawidłowe dane logowania"
